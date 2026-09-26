@@ -58,9 +58,8 @@ export const getApiBaseUrl = (): string => {
     return '/api/v1'
   }
 
-  // Production without VITE_API_URL configured → backend not available
-  // Components will receive graceful empty-state messages instead of errors
-  return ''
+  // In production: default to same-origin serverless API endpoint (/api/v1)
+  return '/api/v1'
 }
 
 export const API_BASE_URL = getApiBaseUrl()
