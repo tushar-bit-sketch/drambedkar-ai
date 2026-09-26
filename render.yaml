@@ -1,12 +1,12 @@
 services:
   # ----------------------------------------------------------------------------
-  # FastAPI Institutional Backend Service
+  # FastAPI Institutional Backend Service — Render Free Tier Ready
   # ----------------------------------------------------------------------------
   - type: web
     name: ambedkar-archive-backend
     env: python
     region: oregon
-    plan: starter
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
@@ -18,41 +18,20 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: ambedkar-archive-db
-          property: connectionString
+        value: sqlite:///./archive_phase1.db
       - key: SECRET_KEY
         generateValue: true
       - key: BACKEND_CORS_ORIGINS
-        value: '["https://ambedkar-archive.vercel.app","http://localhost:5173"]'
+        value: '["https://frontend-kappa-six-80.vercel.app","https://drambedkar-ai.vercel.app","http://localhost:5173","http://localhost:3000"]'
       - key: HF_TOKEN
         sync: false
       - key: HF_MODEL
-        value: BAAI/bge-m3
+        value: meta-llama/Llama-3.1-8B-Instruct
       - key: HF_BASE_URL
         value: https://router.huggingface.co/v1
       - key: VECTOR_BACKEND
-        value: PGVECTOR
-      - key: OBJECT_STORAGE_ENDPOINT
-        sync: false
-      - key: OBJECT_STORAGE_BUCKET
-        sync: false
-      - key: OBJECT_STORAGE_ACCESS_KEY
-        sync: false
-      - key: OBJECT_STORAGE_SECRET_KEY
-        sync: false
+        value: sqlite_dev_fallback
       - key: SECURITY_HEADERS_ENABLED
         value: "true"
       - key: RATE_LIMIT_ENABLED
         value: "true"
-
-databases:
-  # ----------------------------------------------------------------------------
-  # Managed PostgreSQL Database with pgvector
-  # ----------------------------------------------------------------------------
-  - name: ambedkar-archive-db
-    databaseName: ambedkar_archive
-    user: archive_admin
-    region: oregon
-    plan: starter
-    postgresMajorVersion: 16

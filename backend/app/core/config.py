@@ -108,8 +108,8 @@ class Settings(BaseSettings):
     TLS_KEY_PATH: Union[str, None] = os.getenv("TLS_KEY_PATH", None)
 
     # CORS — extended defaults cover local dev + Vercel deployments
-    # Override via BACKEND_CORS_ORIGINS env var in production
-    BACKEND_CORS_ORIGINS: List[str] = [
+    # Override via BACKEND_CORS_ORIGINS env var in production (comma-separated or JSON list)
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = [
         "http://localhost:5173",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
