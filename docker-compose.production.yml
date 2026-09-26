@@ -2,18 +2,22 @@ version: '3.8'
 
 # ==============================================================================
 # SIH26096 — Digital Heritage Archive for Memorials, Manuscripts & Ambedkar
-# PHASE 9 PRODUCTION DEPLOYMENT COMPOSE ARCHITECTURE
+# PRODUCTION DOCKER COMPOSE ARCHITECTURE (Oracle Cloud Always Free VM)
 # ==============================================================================
-# Includes PostgreSQL, Redis Cache, FastAPI Institutional Server,
-# Nginx Reverse Proxy with TLS termination, and read-only master storage mounts.
+# Services:
+# - PostgreSQL 16 with native pgvector extension (pgvector/pgvector:pg16)
+# - Redis 7 Ephemeral Cache
+# - FastAPI Institutional Backend (4 Uvicorn workers)
+# - Nginx Reverse Proxy with TLS termination, Rate Limiting & SPA routing
+# - Persistent Named Volumes for database, cache, and master archival storage
 # ==============================================================================
 
 services:
   # ----------------------------------------------------------------------------
-  # PostgreSQL Database Engine
+  # PostgreSQL 16 + pgvector Database Engine (Private to internal network)
   # ----------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: ambedkar_archive_db
     restart: always
     environment:
@@ -22,6 +26,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-ambedkar_archive}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Bound strictly to internal loopback for local admin/backup tools; never exposed to internet
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
@@ -34,7 +39,7 @@ services:
       - archive_internal
 
   # ----------------------------------------------------------------------------
-  # Redis Ephemeral Cache & Task Queue
+  # Redis 7 Ephemeral Cache & Task Queue (Private to internal network)
   # ----------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
@@ -43,6 +48,7 @@ services:
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-archive_redis_pass_2026}
     volumes:
       - redis_data:/data
+    # Bound strictly to internal loopback
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
@@ -54,7 +60,7 @@ services:
       - archive_internal
 
   # ----------------------------------------------------------------------------
-  # FastAPI Institutional Backend Service
+  # FastAPI Institutional Backend Service (Private to internal network)
   # ----------------------------------------------------------------------------
   backend:
     build:
@@ -65,9 +71,9 @@ services:
     environment:
       - ENVIRONMENT=production
       - PROJECT_NAME=Dr. Ambedkar Institutional Digital Heritage Archive
-      - ARCHIVE_PHASE=PHASE_9_KIOSK_DEPLOYMENT_SECURITY
+      - ARCHIVE_PHASE=PHASE_10_FINAL_INTEGRATION
       - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-archive_user}:${POSTGRES_PASSWORD:-archive_secure_password_2026}@postgres:5432/${POSTGRES_DB:-ambedkar_archive}
-      - SECRET_KEY=${SECRET_KEY:-institutional-vault-production-secret-key-phase9-change-in-production}
+      - SECRET_KEY=${SECRET_KEY:-institutional-vault-production-secret-key-phase10-change-in-production}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-["http://localhost","https://ambedkar-archive.vercel.app"]}
       - HF_TOKEN=${HF_TOKEN:-}
       - HF_MODEL=${HF_MODEL:-BAAI/bge-m3}
@@ -82,9 +88,14 @@ services:
       - KIOSK_IDLE_TIMEOUT_SECONDS=120
       - KIOSK_WARNING_SECONDS=15
       - KIOSK_HEARTBEAT_INTERVAL_SECONDS=30
+      - STORAGE_DIR=/app/storage/uploads
+      - AUDIO_STORAGE_DIR=/app/storage/audio
+      - TRANSLATION_STORAGE_DIR=/app/storage/translations
     volumes:
-      - storage_vault:/app/storage/media/masters:ro # Read-only master vault mount
-      - storage_derivatives:/app/storage/media/derivatives
+      - storage_uploads:/app/storage/uploads
+      - storage_derivatives:/app/storage/derivatives
+      - storage_media:/app/storage/media
+      - storage_audio:/app/storage/audio
       - storage_packages:/app/storage/packages
     depends_on:
       postgres:
@@ -96,12 +107,12 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 20s
     networks:
       - archive_internal
 
   # ----------------------------------------------------------------------------
-  # Nginx Reverse Proxy, TLS Termination & Static File Caching
+  # Nginx Reverse Proxy, TLS Termination & Static File Caching (PUBLIC FACING)
   # ----------------------------------------------------------------------------
   nginx:
     image: nginx:1.25-alpine
@@ -132,9 +143,13 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  storage_vault:
+  storage_uploads:
     driver: local
   storage_derivatives:
+    driver: local
+  storage_media:
+    driver: local
+  storage_audio:
     driver: local
   storage_packages:
     driver: local
