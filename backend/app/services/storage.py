@@ -137,6 +137,29 @@ class StorageService:
             except Exception as e:
                 logger.error("Failed persisting %s to S3 bucket %s: %s", sanitized_filename, settings.OBJECT_STORAGE_BUCKET, e)
 
+        # Upload to Supabase Storage if configured
+        try:
+            from app.core.supabase import supabase_client
+            if supabase_client.is_configured:
+                # Route to appropriate archival bucket based on MIME extension
+                if ext in (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".webp"):
+                    target_bucket = settings.SUPABASE_BUCKET_IMAGES
+                elif ext in (".mp3", ".wav", ".m4a"):
+                    target_bucket = settings.SUPABASE_BUCKET_AUDIO
+                elif ext in (".json", ".xml", ".vtt", ".srt"):
+                    target_bucket = settings.SUPABASE_BUCKET_DERIVATIVES
+                else:
+                    target_bucket = settings.SUPABASE_BUCKET_DOCUMENTS
+
+                ct = mimetypes.guess_type(sanitized_filename)[0] or "application/octet-stream"
+                ok, res = supabase_client.upload_asset(target_bucket, sanitized_filename, file_bytes, ct)
+                if ok:
+                    logger.info("Persisted archival master %s to Supabase bucket [%s]", sanitized_filename, target_bucket)
+                else:
+                    logger.debug("Supabase Storage upload bypassed/deferred: %s", res)
+        except Exception as se:
+            logger.debug("Supabase Storage integration bypassed: %s", se)
+
         return sanitized_filename, relative_path, sha256, size_bytes
 
     @staticmethod

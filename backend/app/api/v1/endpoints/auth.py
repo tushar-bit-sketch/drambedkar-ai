@@ -24,15 +24,47 @@ def get_current_user_optional(
 ) -> Optional[User]:
     if not token:
         return None
+    
+    # 1. Try local institutional JWT
     payload = decode_access_token(token)
-    if not payload or "sub" not in payload:
-        return None
+    if payload and "sub" in payload:
+        try:
+            user_id = int(payload.get("sub"))
+            return db.query(User).filter(User.id == user_id).first()
+        except (ValueError, TypeError):
+            pass
+
+    # 2. Try Supabase Auth JWT
     try:
-        user_id = int(payload.get("sub"))
-        user = db.query(User).filter(User.id == user_id).first()
-    except (ValueError, TypeError):
-        user = None
-    return user
+        from app.core.supabase import supabase_client
+        sb_payload = supabase_client.verify_jwt(token)
+        if sb_payload:
+            email = sb_payload.get("email")
+            if email:
+                user = db.query(User).filter(User.email == email.strip()).first()
+                if user:
+                    return user
+                # Provision or bind authenticated Supabase user with mapped role
+                role_name = sb_payload.get("institutional_role", "VISITOR")
+                role = db.query(Role).filter(Role.name == role_name).first()
+                if not role:
+                    role = db.query(Role).filter(Role.name == "VISITOR").first()
+                
+                new_user = User(
+                    email=email.strip(),
+                    full_name=sb_payload.get("user_metadata", {}).get("full_name") or email.split("@")[0].title(),
+                    hashed_password="SUPABASE_MANAGED_AUTH",
+                    is_active=True,
+                    role_id=role.id if role else 1
+                )
+                db.add(new_user)
+                db.commit()
+                db.refresh(new_user)
+                return new_user
+    except Exception:
+        pass
+
+    return None
 
 def get_current_user(
     token: Optional[str] = Depends(oauth2_scheme),
@@ -58,19 +90,14 @@ def require_role(allowed_roles: list[str]):
                 detail="Authentication credentials required for administrative access",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        payload = decode_access_token(token)
-        if not payload or "sub" not in payload:
+        user = get_current_user_optional(token=token, db=db)
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired session token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        try:
-            user_id = int(payload["sub"])
-            user = db.query(User).filter(User.id == user_id).first()
-        except (ValueError, TypeError):
-            user = None
-        if not user or not user.is_active:
+        if not user.is_active:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User inactive or removed")
 
         user_role = user.role.name if user.role else "VISITOR"

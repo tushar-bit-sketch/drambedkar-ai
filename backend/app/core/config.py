@@ -83,6 +83,18 @@ class Settings(BaseSettings):
     OBJECT_STORAGE_SECRET_KEY: Union[str, None] = os.getenv("OBJECT_STORAGE_SECRET_KEY", None)
     OBJECT_STORAGE_REGION: str = os.getenv("OBJECT_STORAGE_REGION", "us-east-1")
 
+    # Supabase Managed Infrastructure Configuration
+    SUPABASE_URL: Union[str, None] = os.getenv("SUPABASE_URL", None)
+    SUPABASE_ANON_KEY: Union[str, None] = os.getenv("SUPABASE_ANON_KEY", None)
+    SUPABASE_SERVICE_ROLE_KEY: Union[str, None] = os.getenv("SUPABASE_SERVICE_ROLE_KEY", None)
+    SUPABASE_JWT_SECRET: Union[str, None] = os.getenv("SUPABASE_JWT_SECRET", None)
+
+    # Supabase Storage Buckets for Archival Assets
+    SUPABASE_BUCKET_DOCUMENTS: str = os.getenv("SUPABASE_BUCKET_DOCUMENTS", "archive-documents")
+    SUPABASE_BUCKET_IMAGES: str = os.getenv("SUPABASE_BUCKET_IMAGES", "archive-images")
+    SUPABASE_BUCKET_AUDIO: str = os.getenv("SUPABASE_BUCKET_AUDIO", "archive-audio")
+    SUPABASE_BUCKET_DERIVATIVES: str = os.getenv("SUPABASE_BUCKET_DERIVATIVES", "archive-derivatives")
+
     # Phase 7: Knowledge Graph & Intelligent Timeline Configuration
     GRAPH_BACKEND: str = os.getenv("GRAPH_BACKEND", "postgres") # "neo4j" or "postgres"
     NEO4J_URI: Union[str, None] = os.getenv("NEO4J_URI", None)

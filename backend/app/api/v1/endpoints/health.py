@@ -104,6 +104,16 @@ def health_dependencies(db: Session = Depends(get_db)):
                 "display": hw_report.get("hardware", {}).get("display", "OPERATIONAL"),
                 "touchscreen": hw_report.get("hardware", {}).get("touchscreen", "NOT_DETECTED"),
                 "audio": hw_report.get("hardware", {}).get("speaker", "OPERATIONAL")
+            },
+            "supabase_cloud": {
+                "configured": bool(settings.SUPABASE_URL),
+                "url": settings.SUPABASE_URL or "UNCONFIGURED",
+                "storage_buckets": [
+                    settings.SUPABASE_BUCKET_DOCUMENTS,
+                    settings.SUPABASE_BUCKET_IMAGES,
+                    settings.SUPABASE_BUCKET_AUDIO,
+                    settings.SUPABASE_BUCKET_DERIVATIVES
+                ]
             }
         }
     }
