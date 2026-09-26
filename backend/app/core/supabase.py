@@ -126,7 +126,7 @@ class SupabaseClient:
         if not self.has_admin_access:
             return {"error": "Admin service role key required"}
 
-        buckets = [
+        required_buckets = [
             settings.SUPABASE_BUCKET_DOCUMENTS,
             settings.SUPABASE_BUCKET_IMAGES,
             settings.SUPABASE_BUCKET_AUDIO,
@@ -137,14 +137,21 @@ class SupabaseClient:
         headers = self._get_headers(use_service_role=True)
 
         try:
-            with httpx.Client(timeout=10.0) as client:
-                for b in buckets:
-                    # Check if bucket exists
-                    res = client.get(f"{self.url}/storage/v1/bucket/{b}", headers=headers)
-                    if res.status_code == 200:
+            with httpx.Client(timeout=25.0) as client:
+                # 1. Fetch existing buckets in one shot
+                res = client.get(f"{self.url}/storage/v1/bucket", headers=headers)
+                existing = set()
+                if res.status_code == 200:
+                    try:
+                        existing = {b["id"] for b in res.json() if "id" in b}
+                    except Exception:
+                        pass
+
+                # 2. Provision any missing buckets
+                for b in required_buckets:
+                    if b in existing:
                         results[b] = True
                     else:
-                        # Create bucket
                         create_res = client.post(
                             f"{self.url}/storage/v1/bucket",
                             headers=headers,
